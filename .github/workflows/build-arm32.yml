@@ -10,6 +10,12 @@ on:
     branches:
       - main
   workflow_dispatch:  # 允许手动触发
+    inputs:
+      push_image:
+        description: '是否推送镜像到 Docker Hub'
+        required: true
+        default: 'false'
+        type: boolean
 
 env:
   REGISTRY: docker.io
@@ -36,6 +42,33 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'komari-web/package-lock.json'
+
+      - name: Build Frontend
+        run: |
+          # 克隆前端仓库
+          git clone https://github.com/komari-monitor/komari-web
+          cd komari-web
+          
+          # 安装依赖和构建
+          npm install
+          npm run build
+          
+          # 检查构建结果
+          echo "前端构建完成，检查 dist 目录..."
+          ls -la dist
+          
+          # 确保资源文件被正确放置
+          echo "将前端资源复制到 Go 项目中..."
+          cp -r dist ../public
+          cd ..
+          ls -la dist
+
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
@@ -48,6 +81,11 @@ jobs:
 
       - name: Build ARM32 Binary
         run: |
+          # 验证前端构建结果
+          echo "检查前端构建文件..."
+          ls -la komari-web/dist/
+          
+          # 设置编译环境变量
           export CC=arm-linux-gnueabi-gcc
           export CGO_ENABLED=1
           export GOOS=linux
@@ -55,16 +93,25 @@ jobs:
           export GOARM=7
           export CGO_CFLAGS="-march=armv7-a"
           export CGO_LDFLAGS="-static"
+          
+          echo "开始构建 Go 二进制文件..."
           go build -buildvcs=false \
             -tags "sqlite_omit_load_extension" \
             -ldflags="-linkmode external -extldflags '-static'" \
+            -v -x \
             -o komari-linux-armv7
+          
+          echo "构建完成，检查二进制文件..."
+          ls -la komari-linux-armv7
+          file komari-linux-armv7
           
           # 移除调试信息
           arm-linux-gnueabi-strip komari-linux-armv7
 
       - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request'
+        if: |
+          github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) ||
+          (github.event_name == 'workflow_dispatch' && inputs.push_image)
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -87,7 +134,10 @@ jobs:
           context: .
           file: ./Dockerfile.arm32v7
           platforms: linux/arm/v7
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ 
+            github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) ||
+            (github.event_name == 'workflow_dispatch' && inputs.push_image)
+          }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
