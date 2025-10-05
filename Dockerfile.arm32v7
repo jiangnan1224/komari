@@ -1,0 +1,22 @@
+FROM arm32v7/alpine:3.19
+
+WORKDIR /app
+
+RUN apk add --no-cache tzdata
+
+COPY komari-linux-armv7 /app/komari
+
+RUN chmod +x /app/komari && \
+    mkdir -p /app/data
+
+ENV GIN_MODE=release
+ENV KOMARI_DB_TYPE=sqlite
+ENV KOMARI_DB_FILE=/app/data/komari.db
+ENV KOMARI_DB_HOST=localhost
+ENV KOMARI_DB_PORT=3306
+ENV KOMARI_DB_USER=root
+
+VOLUME ["/app/data"]
+EXPOSE 5001
+
+ENTRYPOINT ["/app/komari"]
