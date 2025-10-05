@@ -66,10 +66,11 @@ jobs:
           
           # 确保资源文件被正确放置
           echo "将前端资源复制到 Go 项目中..."
-          cp -r dist/* ../public/
+          mkdir -p ../public/dist
+          cp -r dist/* ../public/dist/
           
           echo "验证文件复制结果..."
-          ls -la ../public/
+          ls -la ../public/dist/
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -85,7 +86,7 @@ jobs:
         run: |
           # 验证前端构建结果
           echo "检查前端构建文件..."
-          ls -la public/
+          ls -la public/dist/
           
           # 设置编译环境变量
           export CC=arm-linux-gnueabi-gcc
