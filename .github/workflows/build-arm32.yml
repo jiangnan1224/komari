@@ -42,18 +42,34 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Clone Frontend Repository
+        run: |
+          git clone https://github.com/komari-monitor/komari-web
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: 'komari-web/package-lock.json'
+          cache-dependency-path: './komari-web/package-lock.json'
 
       - name: Build Frontend
+        working-directory: ./komari-web
         run: |
-          # 克隆前端仓库
-          git clone https://github.com/komari-monitor/komari-web
-          cd komari-web
+          # 安装依赖和构建
+          npm install
+          npm run build
+          
+          # 检查构建结果
+          echo "前端构建完成，检查 dist 目录..."
+          ls -la dist
+          
+          # 确保资源文件被正确放置
+          echo "将前端资源复制到 Go 项目中..."
+          cp -r dist/* ../public/
+          
+          echo "验证文件复制结果..."
+          ls -la ../public/
           
           # 安装依赖和构建
           npm install
@@ -83,7 +99,7 @@ jobs:
         run: |
           # 验证前端构建结果
           echo "检查前端构建文件..."
-          ls -la komari-web/dist/
+          ls -la public/
           
           # 设置编译环境变量
           export CC=arm-linux-gnueabi-gcc
