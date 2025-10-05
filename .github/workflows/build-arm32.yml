@@ -70,20 +70,6 @@ jobs:
           
           echo "验证文件复制结果..."
           ls -la ../public/
-          
-          # 安装依赖和构建
-          npm install
-          npm run build
-          
-          # 检查构建结果
-          echo "前端构建完成，检查 dist 目录..."
-          ls -la dist
-          
-          # 确保资源文件被正确放置
-          echo "将前端资源复制到 Go 项目中..."
-          cp -r dist ../public
-          cd ..
-          ls -la dist
 
       - name: Setup Go
         uses: actions/setup-go@v4
